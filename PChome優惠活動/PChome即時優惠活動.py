@@ -30,7 +30,7 @@ for activity in discount:
     activity_str = str(activity)
     if 'href=' in activity_str:
         start = activity_str.find('href="') + 6   # 網址從 href=" 的下一個開始所以+6
-        end = activity_str.find('"', start)       #根據start找到下一個 " 的結束位置
+        end = activity_str.find('"', start)       # 根據start找到下一個 " 的結束位置
         activity_link = activity_str[start:end] if start > 5 and end > start else '無連結'
     else:
         activity_link = '無連結'
