@@ -190,16 +190,25 @@ class YouTubeScraper:
             # 下載影片
             print(f"正在下載: {title}")
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                ydl.download([url])
+                result = ydl.download([url])
+                
+                # 檢查下載結果
+                if result != 0:
+                    print(f"下載過程中出現錯誤，返回碼: {result}")
             
             # 確定下載後的檔案路徑
             if output_filename:
                 base_filename = output_filename
             else:
+                # 處理檔案名稱中的非法字元和特殊字符
                 base_filename = title
                 
-            # 處理檔案名稱中的非法字元
+            # 處理檔案名稱中的非法字元和特殊字符
             base_filename = re.sub(r'[\\/*?:"<>|]', '_', base_filename)
+            # 處理其他特殊字符，例如斜線變體
+            base_filename = base_filename.replace('⧸', '_')
+            base_filename = base_filename.replace('／', '_')
+            base_filename = base_filename.replace('∕', '_')
             
             # 如果沒有 FFmpeg 且不是僅下載音訊，則需要找出下載的檔案
             if not self.has_ffmpeg and resolution != "audio":
@@ -241,11 +250,23 @@ class YouTubeScraper:
                 return file_path
             else:
                 # 嘗試查找任何可能的下載檔案
+                found_files = []
                 for file in os.listdir(self.output_dir):
-                    if file.startswith(base_filename) or base_filename in file:
-                        file_path = os.path.join(self.output_dir, file)
-                        print(f"下載完成: {file_path}")
-                        return file_path
+                    # 使用更寬鬆的匹配條件
+                    # 檢查標題的前幾個字符是否存在於檔案名中
+                    if len(base_filename) > 5 and base_filename[:5] in file:
+                        found_files.append(file)
+                    # 或者檢查檔案名是否包含標題的一部分
+                    elif len(base_filename) > 10 and any(part in file for part in base_filename.split()):
+                        found_files.append(file)
+                
+                # 如果找到了檔案，使用最新的一個
+                if found_files:
+                    # 按修改時間排序，最新的在前面
+                    found_files.sort(key=lambda x: os.path.getmtime(os.path.join(self.output_dir, x)), reverse=True)
+                    newest_file = os.path.join(self.output_dir, found_files[0])
+                    print(f"下載完成: {newest_file}")
+                    return newest_file
                         
                 print("找不到下載的檔案")
                 return None
@@ -304,10 +325,8 @@ class YouTubeScraper:
         try:
             # 使用簡單的請求模擬搜索
             search_url = f"https://www.youtube.com/results?search_query={query.replace(' ', '+')}"
-            headers = {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-            }
-            response = requests.get(search_url, headers=headers)
+           
+            response = requests.get(search_url)
             
             if response.status_code == 200:
                 # 使用正則表達式提取影片 ID
